@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 
 #if defined(_WIN32)
 
@@ -28,7 +29,7 @@ int getch() //Lê o que foi teclado
 {
     int r;
     unsigned char c;
-    if ((r = read(0, &c, sizeof(c))) < 0) {
+    if ((r = read(STDIN_FILENO, &c, sizeof(c))) < 0) {
         return r;
     } else {
         return c;
@@ -88,6 +89,7 @@ void clearScreen()
 
 #define ALTURA 10
 #define LARGURA 5
+#define DELAY 0.1
 
 using namespace std;
 
@@ -96,12 +98,18 @@ int main()
     char input('\0');
     bool fim(false);
     int I(ALTURA/2), J(LARGURA/2);
-		enable_getch();
+
+	
+    double Tnow(double(clock())/CLOCKS_PER_SEC);
+    double Tbefore(Tnow);
+
+	enable_getch();
 
     while(!fim)
 	{
-		while(kbhit()==0);
-        input = getch();
+        while(kbhit()==0 && Tnow-Tbefore<DELAY) Tnow = double(clock())/CLOCKS_PER_SEC;
+        if(Tnow-Tbefore<DELAY) input = getch();
+        Tbefore = Tnow;
 
 		clearScreen();
 
@@ -132,18 +140,18 @@ int main()
         }
 
 		//int V[ALTURA][LARGURA];
-		I%=ALTURA;
-		J%=LARGURA;
+        I=I%ALTURA+ALTURA;
+        J=J%LARGURA+LARGURA;
 		for(int i = 0; i < ALTURA; i++)
 		{
 			for(int j = 0; j < LARGURA; j++)
 			{
-				if ( i==I && j==J ) cout << "# ";
+				if ( i==I%ALTURA && j==J%LARGURA ) cout << "# ";
 				else cout << ". ";
 			}
 			cout << endl;
 		}
     }
-		disable_getch();
+	disable_getch();
 	return 0;
 }
