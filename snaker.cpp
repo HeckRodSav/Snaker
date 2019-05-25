@@ -2,49 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
+#if defined(_WIN32)
 
 #include <conio.h>
 
-#elif __linux__
+#elif defined(__linux__) || defined(__APPLE__)
 
 #include <unistd.h>
 #include <sys/select.h>
-#include <termios.h>
+#include <	.h>
 
-#endif
-
-
-
-#define ALTURA 10
-#define LARGURA 5
-
-using namespace std;
-
-#ifdef _WIN32
-
-#elif __linux__
-
-struct termios orig_termios;
-
-void disable_getch()  //Retorna para o terminal original // reset_terminal_mode
-{
-    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
-}
-
-void enable_getch()  //Configura terminal especial // set_conio_terminal_mode
-{
-    struct termios new_termios;
-
-    /* take two copies - one for now, one for later */
-    tcgetattr(STDIN_FILENO, &orig_termios);
-    memcpy(&new_termios, &orig_termios, sizeof(new_termios));
-
-    /* register cleanup handler, and set the new terminal mode */
-    atexit(disable_getch);
-    cfmakeraw(&new_termios);
-    tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
-}
+struct termios tty_settings;
 
 int kbhit() //Retorna 0 se nada foi teclado
 {
@@ -68,17 +36,58 @@ int getch() //Lê o que foi teclado
 
 #endif
 
+int TTY = -1;
+int tty_available()
+{
+    if (TTY < 0)
+	{
+#if defined(__linux__) || defined(__APPLE__)
+        TTY = isatty(STDOUT_FILENO) && isatty(STDIN_FILENO);
+#else
+        TTY = 0;
+#endif
+    }
+    return TTY;
+}
+
+void disable_getch()  //Retorna para o terminal original // reset_terminal_mode
+{
+#if defined(__linux__) || defined(__APPLE__)
+    if(tty_available()) tcsetattr(STDIN_FILENO, TCSANOW, &tty_settings);
+#endif
+}
+
+void enable_getch()  //Configura terminal especial // set_conio_terminal_mode
+{
+#if defined(__linux__) || defined(__APPLE__)
+	if(tty_available())
+	{
+		struct termios newattr;
+
+		/* take two copies - one for now, one for later */
+		tcgetattr(STDIN_FILENO, &tty_settings);
+		memcpy(&newattr, &tty_settings, sizeof(newattr));
+
+		/* register cleanup handler, and set the new terminal mode */
+		atexit(disable_getch);
+		newattr.c_lflag &= ~(ICANON | ECHO);
+		tcsetattr(STDIN_FILENO, TCSANOW, &newattr);
+	}
+#endif
+}
+
+#define ALTURA 10
+#define LARGURA 5
+
+using namespace std;
+
 int main()
 {
     int I(ALTURA/2), J(LARGURA/2);
 
-#ifdef __linux__
     enable_getch();
-#endif
 
-#ifdef __linux__
     disable_getch();
-#endif
 
     //int V[ALTURA][LARGURA];
     I%=ALTURA;
