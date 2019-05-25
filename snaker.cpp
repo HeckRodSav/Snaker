@@ -1,4 +1,5 @@
 #include <iostream>
+#include <list>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -87,19 +88,36 @@ void clearScreen()
 #endif
 }
 
-#define ALTURA 10
-#define LARGURA 5
+#define ALTURA 30
+#define LARGURA 30
 #define DELAY 0.1
 
 using namespace std;
 
+struct coord
+{
+    coord(int X, int Y)
+    {
+        this->x=X;
+        this->y=Y;
+    }
+    int x, y;
+};
+
 int main()
 {
+    list<coord> body;
+
     char input('\0');
     bool fim(false);
+	int size(1), t_counter(0);
     int I(ALTURA/2), J(LARGURA/2);
+    body.push_front(coord(I,J));
+    bool grow(false);
 
-	
+    char** table = new char*[ALTURA]; // {}
+    for(int i=0; i<ALTURA; i++) table[i] = new char[LARGURA];
+
     double Tnow(double(clock())/CLOCKS_PER_SEC);
     double Tbefore(Tnow);
 
@@ -108,8 +126,14 @@ int main()
     while(!fim)
 	{
         while(kbhit()==0 && Tnow-Tbefore<DELAY) Tnow = double(clock())/CLOCKS_PER_SEC;
-        if(Tnow-Tbefore<DELAY) input = getch();
+        if(kbhit()) input = getch();
         Tbefore = Tnow;
+
+        if(((++t_counter)%=100)==0)
+        {
+            size++;
+            grow = true;
+        }
 
 		clearScreen();
 
@@ -142,16 +166,35 @@ int main()
 		//int V[ALTURA][LARGURA];
         I=I%ALTURA+ALTURA;
         J=J%LARGURA+LARGURA;
-		for(int i = 0; i < ALTURA; i++)
-		{
-			for(int j = 0; j < LARGURA; j++)
-			{
-				if ( i==I%ALTURA && j==J%LARGURA ) cout << "# ";
-				else cout << ". ";
-			}
-			cout << endl;
-		}
+
+        body.push_front(coord(I%ALTURA,J%LARGURA));
+        if(grow) grow = false;
+        else body.pop_back();
+
+        for(int i=0; i<ALTURA; i++) for(int j=0; j<LARGURA; j++) table[i][j]='.'; //Limpa tabuleiro
+
+        //table[I%ALTURA][J%LARGURA] = '#';
+        for(list<coord>::iterator dot=body.begin(); dot != body.end(); dot++)
+        {
+            coord C = *dot;
+            //cout << "(" << C.x << "," << C.y << ")" << endl;
+            table[C.x][C.y]='#';
+        }
+
+        for(int i = 0; i < ALTURA; i++)
+        {
+            for(int j = 0; j < LARGURA; j++)
+            {
+                cout << table[i][j] << ' ';
+            }
+            cout << endl;
+        }
     }
+
+    for (int i=0; i<ALTURA; i++) delete[] table[i];
+    delete[] table;
+
 	disable_getch();
+
 	return 0;
 }
