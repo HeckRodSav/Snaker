@@ -94,13 +94,14 @@ void clearScreen()
 #define TRAIL_SIZE ((ALTURA+LARGURA)/4)
 
 #define AUTOWALK 1
-#define AUTOGROW 1
+#define AUTOGROW 0
 
 #define WALL_CHAR  '#'
 #define HEAD_CHAR  '@'
 #define BODY_CHAR  'S'
 #define TRAIL_CHAR '.'
 #define EMPTY_CHAR ' '
+#define COIN_CHAR  'O'
 
 using namespace std;
 
@@ -122,10 +123,12 @@ int main()
     char input('\0');
     bool fim(false);
 
-	int size(1), t_counter(0);
-    bool grow(false);
     int I(ALTURA/2), J(LARGURA/2);
     body.push_front(coord(I,J));
+
+	int size(1), t_counter(0);
+    bool grow(false);
+    bool coinRequest(true);
 
 
     char** table = new char*[ALTURA]; // {}
@@ -136,12 +139,15 @@ int main()
     double Tnow(double(clock())/CLOCKS_PER_SEC);
     double Tbefore(Tnow);
 
+    coord coin(0,0);
+
 	enable_getch();
 
     while(!fim)
 	{
+        t_counter++;
 #if AUTOGROW
-        if(((++t_counter)%100)==0)
+        if(((t_counter)%100)==0)
         {
             size++;
             grow = true;
@@ -166,6 +172,21 @@ int main()
             input = R;
         }
 #endif
+
+        if(coinRequest)
+        {
+            do
+            {
+                coin.x=(rand()&ALTURA);
+                coin.y=(rand()&LARGURA);
+                coin.x%=ALTURA;
+                coin.y%=LARGURA;
+                if(coin.x >= ALTURA || coin.y >= LARGURA) fim = true;
+            }
+            while(table[coin.x][coin.y]!=EMPTY_CHAR);
+            table[coin.x&ALTURA][coin.y&LARGURA] = COIN_CHAR;
+            coinRequest = false;
+        }
 
         while(kbhit()==0 && Tnow-Tbefore<DELAY) Tnow = double(clock())/CLOCKS_PER_SEC;
         if(kbhit()) input = getch();
@@ -200,6 +221,13 @@ int main()
         I=I%ALTURA+ALTURA;
         J=J%LARGURA+LARGURA;
 
+        if(table[I%ALTURA][J%LARGURA]==COIN_CHAR)
+        {
+            size++;
+            grow = true;
+            coinRequest = true;
+        }
+
         body.push_front(coord(I%ALTURA,J%LARGURA));
         if(grow) grow = false;
         else
@@ -224,7 +252,7 @@ int main()
 
 		clearScreen();
 
-        cout << input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ")" << endl;
+        cout << input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ") -> (" << coin.x <<"," << coin.y << ")" << endl;
 
         for(int j = 0; j < LARGURA + 2; j++) cout << WALL_CHAR << " "; cout << endl;
         for(int i = 0; i < ALTURA; i++)
