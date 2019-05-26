@@ -117,6 +117,29 @@ struct coord
 
 static const char commands[] = {'w','a','s','d'};
 
+void printAt(int Y, int X, char C)
+{
+    cerr << "\x1b[" << (Y) << ";" << (X) << "H" << (C);
+}
+
+void printTableBorder(int xBase, int yBase, int height = ALTURA, int width = LARGURA, char character = WALL_CHAR)
+{
+        for(int j = 0; j < width + 2; j++)
+        {
+            printAt(2,1+j*2,character);
+            // cerr << "\x1b[" << 2 << ";" << 1+j*2 << "H" << character;
+            printAt(3+height,1+j*2,character);
+            // cerr << "\x1b[" << 3+height << ";" << 1+j*2 << "H" << character;
+        }
+        for(int i = 0; i <= height; i++)
+        {
+            printAt(2+i,1,character);
+            // cerr << "\x1b[" << 2+i << ";" << 1 << "H" << character;
+            printAt(2+i,1+2*(1+width),character);
+            // cerr << "\x1b[" << 2+i << ";" << 1+2*(1+width) << "H" << character;
+        }
+}
+
 int main()
 {
     list<coord> body, trail;
@@ -124,7 +147,7 @@ int main()
     bool fim(false);
 
     int I(ALTURA/2), J(LARGURA/2);
-    body.push_front(coord(I,J));
+    coord head(I,J), coin(0,0), clear(0,0);
 
 	int size(1), t_counter(0);
     bool grow(false);
@@ -136,12 +159,15 @@ int main()
 
     for(int i=0; i<ALTURA; i++) memset(table[i],EMPTY_CHAR,sizeof(char)*LARGURA); //Limpa tabuleiro
 
+#if KEEPWALK
     double Tnow(double(clock())/CLOCKS_PER_SEC);
     double Tbefore(Tnow);
-
-    coord coin(0,0);
+#endif
 
 	enable_getch();
+    cerr << "\x1b[?25l";
+    clearScreen();
+    printTableBorder(5,5);
 
     while(!fim)
 	{
@@ -173,24 +199,13 @@ int main()
         }
 #endif
 
-        if(coinRequest)
-        {
-            do
-            {
-                coin.x=(rand()&ALTURA);
-                coin.y=(rand()&LARGURA);
-                coin.x%=ALTURA;
-                coin.y%=LARGURA;
-                if(coin.x >= ALTURA || coin.y >= LARGURA) fim = true;
-            }
-            while(table[coin.x][coin.y]!=EMPTY_CHAR);
-            table[coin.x&ALTURA][coin.y&LARGURA] = COIN_CHAR;
-            coinRequest = false;
-        }
-
+#if KEEPWALK
         while(kbhit()==0 && Tnow-Tbefore<DELAY) Tnow = double(clock())/CLOCKS_PER_SEC;
-        if(kbhit()) input = getch();
         Tbefore = Tnow;
+#else
+        while(kbhit()==0);
+#endif
+        if(kbhit()) input = getch();
 
         switch(input)
         {
@@ -217,9 +232,13 @@ int main()
             default:;
         }
 
-		//int V[ALTURA][LARGURA];
+        //table[I%ALTURA][J%LARGURA];
         I=I%ALTURA+ALTURA;
         J=J%LARGURA+LARGURA;
+
+        body.push_front(head);
+        head = coord(I%ALTURA,J%LARGURA);
+        table[head.x][head.y] = HEAD_CHAR;
 
         if(table[I%ALTURA][J%LARGURA]==COIN_CHAR)
         {
@@ -228,7 +247,22 @@ int main()
             coinRequest = true;
         }
 
-        body.push_front(coord(I%ALTURA,J%LARGURA));
+        if(coinRequest)
+        {
+            do
+            {
+                coin.x=(rand()%ALTURA);
+                coin.y=(rand()%LARGURA);
+                // coin.x%=ALTURA;
+                // coin.y%=LARGURA;
+                if(coin.x >= ALTURA || coin.y >= LARGURA) fim = true;
+            }
+            while(table[coin.x][coin.y]!=EMPTY_CHAR);
+            table[coin.x%ALTURA][coin.y%LARGURA] = COIN_CHAR;
+            coinRequest = false;
+        }
+
+
         if(grow) grow = false;
         else
         {
@@ -239,38 +273,48 @@ int main()
         }
         if(trail.size()>TRAIL_SIZE)
         {
-            coord C = trail.back();
+            clear = trail.back();
+            table[clear.x][clear.y]=EMPTY_CHAR;
             trail.pop_back();
-            table[C.x][C.y]=EMPTY_CHAR;
         }
 
-        // for(int i=0; i<ALTURA; i++) for(int j=0; j<LARGURA; j++) table[i][j]='.'; //Limpa tabuleiro
-
-        //table[I%ALTURA][J%LARGURA] = '#';
         for(list<coord>::iterator dot=body.begin(); dot != body.end(); dot++) table[dot->x][dot->y]=BODY_CHAR;
-        table[body.front().x][body.front().y] = HEAD_CHAR;
+        table[head.x][head.y] = HEAD_CHAR;
 
-		clearScreen();
+		// clearScreen();
 
-        cout << input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ") -> (" << coin.x <<"," << coin.y << ")" << endl;
+        printAt(3+coin.x, 1+2*(1+coin.y), COIN_CHAR);
+        printAt(3+clear.x, 1+2*(1+clear.y), EMPTY_CHAR);
+        for(list<coord>::iterator dot=trail.begin(); dot != trail.end(); dot++) printAt(3+dot->x, 1+2*(1+dot->y), TRAIL_CHAR);
+        for(list<coord>::iterator dot=body.begin();  dot != body.end();  dot++) printAt(3+dot->x, 1+2*(1+dot->y), BODY_CHAR);
+        printAt(3+head.x, 1+2*(1+head.y), HEAD_CHAR);
 
-        for(int j = 0; j < LARGURA + 2; j++) cout << WALL_CHAR << " "; cout << endl;
+        cerr << "\x1b[H" << "\x1b[K" << input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ") -> (" << coin.x <<"," << coin.y << ")";
+
+        #if 0 /* Classic interface generator */
+        cout << "\x1b[1;1H" <<input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ") -> (" << coin.x <<"," << coin.y << ")";
+        cerr << endl;
+        for(int j = 0; j < LARGURA + 2; j++) cerr << WALL_CHAR << " "; cerr << endl;
         for(int i = 0; i < ALTURA; i++)
         {
-            cout << WALL_CHAR << " " ;
+            cerr << WALL_CHAR << " " ;
             for(int j = 0; j < LARGURA; j++)
             {
-                cout << table[i][j] << " ";
+                cerr << table[i][j] << " ";
             }
-            cout << WALL_CHAR << endl;
+            cerr << WALL_CHAR << endl;
         }
-        for(int j = 0; j < LARGURA + 2; j++) cout << WALL_CHAR << " "; cout << endl;
+        for(int j = 0; j < LARGURA + 2; j++) cerr << WALL_CHAR << " "; cerr << endl;
+        #endif
+
     }
 
     for (int i=0; i<ALTURA; i++) delete[] table[i];
     delete[] table;
 
 	disable_getch();
+
+    cerr << "\x1b[" << 4+ALTURA << ";1H" << "\x1b[?25h";
 
 	return 0;
 }
