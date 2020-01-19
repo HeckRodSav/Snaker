@@ -1,6 +1,6 @@
 GPP = g++
 ADDITIONAL = 
-CFLAGS = $(ADDITIONAL) -march=native -std=c++14 -ansi -pedantic -Wall -Werror -lm
+CFLAGS = $(ADDITIONAL) -march=native -std=c++14 -pedantic -Wall -lm
 
 SOURCE = snaker.cpp
 RUNNER = snaker.run

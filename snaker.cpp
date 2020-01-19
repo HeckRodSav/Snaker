@@ -88,9 +88,9 @@ void clearScreen()
 #endif
 }
 
-#define ALTURA 62
-#define LARGURA 113
-#define DELAY 0.1
+#define ALTURA 40
+#define LARGURA 40
+#define DELAY 0.01
 #define TRAIL_SIZE ((ALTURA+LARGURA)/4)
 
 #define KEEPWALK 1
@@ -98,12 +98,42 @@ void clearScreen()
 #define AUTOGROW 0
 #define INITSIZE 0
 
+#define LOGGER 1
+
 #define WALL_CHAR  '#'
 #define HEAD_CHAR  '@'
 #define BODY_CHAR  'S'
 #define TRAIL_CHAR '.'
 #define EMPTY_CHAR ' '
 #define COIN_CHAR  'O'
+
+#if LOGGER
+
+#include <fstream>
+#include <string>
+
+#include <algorithm>
+#include <chrono>
+
+std::string timeToISO(std::time_t T)
+{
+    char buff[] = "0000_00_00_00_00_00.log";
+    std::strftime(buff,sizeof(buff),"%Y_%m_%d_%H_%M_%S",std::localtime(&T));
+    return std::string(buff);
+}
+
+std::string timeNowISO()
+{
+    return timeToISO(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+}
+
+std::string this_exec_log = (std::string("logs/")+timeNowISO()+std::string(".log"));
+std::ofstream log(this_exec_log.c_str(),std::ofstream::out|std::ofstream::ate);
+
+std::chrono::system_clock::time_point past;
+std::chrono::system_clock::time_point current = std::chrono::system_clock::now();
+
+#endif
 
 using namespace std;
 
@@ -115,6 +145,9 @@ struct coord
         this->y=Y;
     }
     int x, y;
+#if LOGGER
+    operator string() { return string("(")+to_string(this->x)+string(",")+to_string(this->y)+string(")"); }
+#endif
 };
 
 static const char commands[] = {'w','a','s','d'};
@@ -147,11 +180,19 @@ int main()
 {
     srand(time(NULL));
 
+
     int I(ALTURA/2), J(LARGURA/2);
     coord head(I,J), coin(0,0), clear(0,0);
+#if LOGGER
+    bool lg(true);
+
+    log << this_exec_log << '\t';
+    log << string(coord(ALTURA,LARGURA)) << '\t';
+#endif
 
     list<coord> body(INITSIZE, head), trail;
     char input('\0');
+    char prev_input('\0');
     bool fim(false);
 
 	int size(1+body.size()), t_counter(0);
@@ -170,7 +211,16 @@ int main()
 
     while(!fim)
 	{
+
+#if LOGGER
+    past = current;
+    current = chrono::system_clock::now();
+    chrono::duration<double> elapsed_seconds = current - past;
+#endif
+
+        prev_input = input;
         t_counter++;
+
 #if AUTOGROW
         if(((t_counter)%100)==0)
         {
@@ -205,6 +255,18 @@ int main()
         while(kbhit()==0);
 #endif
         if(kbhit()) input = getch();
+
+#if LOGGER
+        // lg = input != prev_input;
+        if(lg)
+        {
+            log << endl << elapsed_seconds.count()*1000.0 << " ms" << '\t';
+            log << t_counter << '\t' << input << '\t';
+            log << "H:" << string(head) << '\t';
+            log << "C:" << string(coin) << '\t';
+            log << "->" << '\t';
+        }
+#endif
 
         switch(input)
         {
@@ -263,6 +325,15 @@ int main()
             coinRequest = false;
         }
 
+#if LOGGER
+        if(lg)
+        {
+            log << "H:" << string(head) << '\t';
+            log << "C:" << string(coin) << '\t';
+            log << size << '\t';
+        }
+#endif
+
         if(grow) grow = false;
         else
         {
@@ -283,7 +354,16 @@ int main()
         for(list<coord>::iterator dot=body.begin();  dot != body.end();  dot++) printAt(3+dot->y, 1+2*(1+dot->x), BODY_CHAR);
         printAt(3+head.y, 1+2*(1+head.x), HEAD_CHAR);
 
-        cerr << "\x1b[H" << "\x1b[K" << input << "; " << size << " (" << I%ALTURA << "," << J%LARGURA << ") -> (" << coin.y <<"," << coin.x << ")";
+        cerr << "\x1b[H" << "\x1b[K"
+            << input << ";\t"
+            << string(head) << " -> " << string(coin) << "\t"
+            << size << '\t'
+            << t_counter << '\t'
+#if LOGGER
+            << elapsed_seconds.count()*1000.0 << '\t'
+            << timeToISO(std::chrono::system_clock::to_time_t(current)) << '\t'
+#endif
+            ;
 
     }
 
